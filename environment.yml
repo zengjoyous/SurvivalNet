@@ -1,0 +1,13 @@
+name: survivalnet
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.9
+  - pip
+  - numpy>=1.24
+  - pandas>=2.0
+  - lifelines>=0.27
+  - click>=8.1
+  - pytest>=7.0
+  - pip:
+      - -e .
