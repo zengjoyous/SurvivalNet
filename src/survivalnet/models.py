@@ -72,13 +72,46 @@ class LassoCoxModel:
     def fit(self, data: pd.DataFrame, duration_col: str, event_col: str) -> "LassoCoxModel":
         if duration_col not in data.columns or event_col not in data.columns:
             raise DataValidationError("Duration/event columns are missing.")
-            
+
+        feature_cols = [col for col in data.columns if col not in {duration_col, event_col}]
+        if not feature_cols:
+            raise DataValidationError("LassoCoxModel requires at least one feature column.")
+
+        # Remove rows with missing values in any model column before fitting.
+        model_data = data[[duration_col, event_col, *feature_cols]].copy()
+        model_data = model_data.dropna(axis=0, how="any")
+        if len(model_data) == 0:
+            raise DataValidationError(
+                "No usable rows remain after dropping missing values from duration, event, and feature columns."
+            )
+
+        # Ensure the event column is binary and has both classes represented.
+        unique_events = pd.Series(model_data[event_col]).dropna().unique().tolist()
+        if len(unique_events) < 2:
+            raise DataValidationError(
+                f"Event column '{event_col}' must contain at least two classes for Cox fitting; got {unique_events}."
+            )
+
+        # CoxPHFitter expects numeric data; fail early with a clearer message if coercion produces invalid values.
+        numeric_model_data = model_data.copy()
+        for col in [duration_col, event_col, *feature_cols]:
+            numeric_model_data[col] = pd.to_numeric(numeric_model_data[col], errors="coerce")
+        numeric_model_data = numeric_model_data.dropna(axis=0, how="any")
+        if len(numeric_model_data) == 0:
+            raise DataValidationError(
+                "No usable rows remain after coercing model columns to numeric values."
+            )
+        if numeric_model_data[feature_cols].nunique(dropna=True).le(1).all():
+            raise DataValidationError(
+                "All feature columns are constant after preprocessing; LASSO-Cox cannot be fitted."
+            )
+
         print(f"开始进行 LASSO-Cox 回归，当前 penalizer (lambda) = {self.penalizer}")
-        
+
         # 核心变动：实例化时加上 penalizer 和 l1_ratio=1.0（1.0 代表纯 LASSO 惩罚）
         self.fitter = CoxPHFitter(penalizer=self.penalizer, l1_ratio=1.0)
-        self.fitter.fit(data, duration_col=duration_col, event_col=event_col)
-        
+        self.fitter.fit(numeric_model_data, duration_col=duration_col, event_col=event_col)
+
         self.duration_col = duration_col
         self.event_col = event_col
         return self
