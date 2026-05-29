@@ -1,16 +1,14 @@
-"""DeepSurv neural network survival model."""
+"""DeepSurv neural-network survival model."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
 import pandas as pd
 import torch
-
 from pycox.models import CoxPH
-from torchtuples import optim
 from sklearn.preprocessing import StandardScaler
+from torchtuples import optim
 
 from ..exceptions import (
     DataValidationError,
@@ -56,8 +54,12 @@ class DeepSurvModel:
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(64),
 
+            torch.nn.Dropout(0.2),
+
             torch.nn.Linear(64, 32),
             torch.nn.ReLU(),
+
+            torch.nn.Dropout(0.2),
 
             torch.nn.Linear(32, 1),
         )
@@ -66,6 +68,8 @@ class DeepSurvModel:
             net,
             optim.Adam,
         )
+
+        self.model.optimizer.set_lr(1e-3)
 
         self.model.fit(
             X,

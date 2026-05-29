@@ -1,6 +1,9 @@
 from .cox import CoxModel
 from .lasso_cox import LassoCoxModel
-from .deepsurv import DeepSurvModel
+try:
+    from .deepsurv import DeepSurvModel
+except ImportError:
+    DeepSurvModel = None
 
 __all__ = [
     "CoxModel",
